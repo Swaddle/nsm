@@ -25,7 +25,10 @@ if __name__ == "__main__":
     D = torch.stack(list(map(lambda x: dummy(x, EMBD_DIM), property_types)))
 
     ordered_C = [
-        torch.stack([dummy(concept, EMBD_DIM) for concept in property_concepts[property]])
+        torch.stack(
+            [dummy(concept, EMBD_DIM)
+             for concept in property_concepts[property]]
+        )
         for property in property_types
     ]
 
@@ -50,8 +53,8 @@ if __name__ == "__main__":
     for idx_pair in permutations(range(len(nodes)), 2):
         pair = tuple(nodes[idx] for idx in idx_pair)
         if pair in relations:
-            E[:,idx_pair[0],idx_pair[1]] = torch.rand(EMBD_DIM)   # (TODO)
-            adjacency_mask[:,idx_pair[0],idx_pair[1]] = 1
+            E[:, idx_pair[0], idx_pair[1]] = torch.rand(EMBD_DIM)   # (TODO)
+            adjacency_mask[:, idx_pair[0], idx_pair[1]] = 1
 
     questions = list(repeat(['what', 'color', 'is', 'the', 'cat'], BATCH))
 
