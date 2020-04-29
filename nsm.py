@@ -87,12 +87,12 @@ class NSM(nn.Module):
         )
 
     def embed(self, token) -> torch.Tensor:
-        dummy(token, self.embd_dim)
+        return dummy(token, self.embd_dim)
 
     def forward(self, questions, C, D, E, S, adjacency_mask):
 
         embd_questions = torch.stack([
-            torch.stack([self.embed(word) for word in question])
+            torch.stack(list(map(self.embed, question)))
             for question in questions
         ])
 
@@ -123,7 +123,7 @@ class NSM(nn.Module):
 
         r = torch.bmm(torch.softmax(torch.bmm(h, V.transpose(1, 2)), dim=2), V)
         p_i = torch.ones(self.batch, len(self.nodes)) / len(self.nodes)
-        for i in range(N):
+        for i in range(self.N):
             # r_i is the appropiate reasoning instruction for the ith step
             r_i = r[:,i,:]
 
@@ -148,7 +148,6 @@ class NSM(nn.Module):
                     )
                 ), dim=1
             ))
-
 
             # bilinear projection 
             𝛾_i_e = F.elu(
@@ -175,7 +174,7 @@ class NSM(nn.Module):
             p_i = r_i_prime * p_i_r + (1 - r_i_prime) * p_i_s
 
         # Sumarize final NSM state
-        r_N = r[:,N,:]
+        r_N = r[:, self.N, :]
         
         property_R_N = F.softmax(
             torch.bmm(
@@ -188,7 +187,7 @@ class NSM(nn.Module):
         # equivalent to:torch.sum(p_i.unsqueeze(2) * torch.sum(property_R_N.view(10, 1, 3, 1) * S, dim=2), dim=1)
         m = torch.bmm(
             p_i.unsqueeze(1),
-            torch.sum(property_R_N.view(self.batch, 1, self.L+1, 1) * S, dim=2)
+            torch.sum(property_R_N.view(self.batch, 1, (self.L)+1, 1) * S, dim=2)
         )
 
         pre_logits = self.classifier(torch.cat([m, q], dim=2).squeeze(1))
