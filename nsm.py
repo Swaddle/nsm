@@ -16,22 +16,15 @@ def dummy(token, emd_dim) -> torch.Tensor:
 
 
 class NSM(nn.Module):
-    embd_dim = 7
-    out_dim = 4
-    batch = 10
-    N = 3
-    L = 3
-    nodes = ['1']
-
-    def __init__(self, ns, e, o, b, n, l):
+    def __init__(self, nodes, embd_dim, out_dim, batch, N, L):
         super().__init__()
 
-        self.nodes = ns
-        self.embd_dim = e
-        self.out_dim = o
-        self.batch = b
-        self.N = n
-        self.L = l
+        self.nodes = nodes
+        self.embd_dim = embd_dim
+        self.out_dim = out_dim
+        self.batch = batch
+        self.N = N
+        self.L = L
 
         self.W = torch.eye(
             self.embd_dim,
@@ -41,7 +34,7 @@ class NSM(nn.Module):
         self.property_W = torch.stack(
             list(repeat(
                 torch.eye(self.embd_dim, requires_grad=True),
-                self.L + 1
+                (self.L)+1
             )),
             dim=0
         )  # Type : Tensor
@@ -61,7 +54,7 @@ class NSM(nn.Module):
             self.embd_dim,
             1,
             bias=False
-        ) 
+        )
 
         # encoder
         self.encoder_lstm = nn.LSTM(
@@ -138,19 +131,25 @@ class NSM(nn.Module):
             property_R_i = R_i[:, :-1]
 
             # bilinear proj (one for each property) init to identity.
-            gamma_i_s = F.elu(torch.sum(
-                torch.mul(
-                    property_R_i.view(self.batch, -1, 1, 1),
+
+            gamma_i_s = F.elu(
+                torch.sum(
                     torch.mul(
-                        torch.matmul(
-                            S.transpose(2, 1),
-                            self.property_W
-                        ), r_i.view(self.batch, 1, 1, self.embd_dim)
-                    )
-                ), dim=1
-            ))
+                        property_R_i.view(self.batch, -1, 1, 1),
+                        torch.mul(
+                            torch.matmul(
+                                S.transpose(2, 1),
+                                self.property_W,
+                            ),
+                            r_i.view(self.batch, 1, 1, self.embd_dim)
+                        )
+                    ),
+                    dim=1
+                )
+            )
 
             # bilinear projection
+
             gamma_i_e = F.elu(
                 torch.mul(
                     torch.bmm(
@@ -160,8 +159,17 @@ class NSM(nn.Module):
                             self.embd_dim,
                             self.embd_dim
                         )
-                    ), r_i.unsqueeze(1))
-            ).view(self.batch, len(self.nodes), len(self.nodes), self.embd_dim)
+                    ),
+                    r_i.unsqueeze(1)
+                )
+            )
+
+            gamma_i_e = gamma_i_e.view(
+                self.batch,
+                len(self.nodes),
+                len(self.nodes),
+                self.embd_dim
+            )
 
             # update state probabilities (via relevant relation)
             p_i_r = F.softmax(
@@ -178,7 +186,7 @@ class NSM(nn.Module):
 
             p_i = r_i_prime * p_i_r + (1 - r_i_prime) * p_i_s
 
-        # Sumarize final NSM state
+        # Summarize final NSM state
         r_N = r[:, self.N, :]
 
         property_R_N = F.softmax(
@@ -198,7 +206,7 @@ class NSM(nn.Module):
         m = torch.bmm(
             p_i.unsqueeze(1),
             torch.sum(
-                property_R_N.view(self.batch, 1, (self.L)+1, 1) * S, 
+                property_R_N.view(self.batch, 1, (self.L)+1, 1) * S,
                 dim=2
             )
         )

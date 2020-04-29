@@ -7,6 +7,9 @@ OUT_DIM = 4
 BATCH = 10
 N = 3
 
+def embed(x):
+    return dummy(x, EMBD_DIM)
+
 if __name__ == "__main__":
 
     property_types = ['color', 'material']
@@ -14,19 +17,22 @@ if __name__ == "__main__":
         'color': ['red', 'green', 'blue'],
         'material': ['cloth', 'rubber']
     }
+    L = len(property_types)
+
     state_identities = ['cat', 'shirt']
     relationships = ['holding', 'behind']
+
+    # extra identity connections
     property_types = ['identity'] + property_types
     property_types += ['relations']
     property_concepts['identity'] = state_identities
     property_concepts['relations'] = relationships
 
-    L = len(property_types)
-    D = torch.stack(list(map(lambda x: dummy(x, EMBD_DIM), property_types)))
+    D = torch.stack(list(map(embed, property_types)))
 
     ordered_C = [
         torch.stack(
-            [dummy(concept, EMBD_DIM)
+            [embed(concept)
              for concept in property_concepts[property]]
         )
         for property in property_types
@@ -61,4 +67,4 @@ if __name__ == "__main__":
     nsm = NSM(nodes, EMBD_DIM, OUT_DIM, BATCH, N, L)
     output = nsm(questions, C, D, E, S, adjacency_mask)
 
-    print(output.shape)
+    print(output)
